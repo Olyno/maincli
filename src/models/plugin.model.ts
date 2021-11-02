@@ -82,6 +82,8 @@ export abstract class Plugin {
         if (path.endsWith('.json') && typeof content === 'object') {
           const json: JsonType = merge(JSON.parse(fileContent), content);
           return fs.writeFile(path, JSON.stringify(json, null, 2), 'utf-8');
+        } else {
+          return fs.writeFile(path, fileContent + '\n' + content, 'utf-8');
         }
       })
       .then(() => writeFile.succeed(`Created: ${path}`))

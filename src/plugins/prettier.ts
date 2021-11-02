@@ -1,7 +1,8 @@
+import fs from 'fs/promises';
 import path from 'path';
 import { Plugin, PluginRun } from '../models/plugin.model';
 
-export class NewYarn extends Plugin {
+export class Prettier extends Plugin {
   constructor() {
     super({
       name: 'prettier',
@@ -16,6 +17,7 @@ export class NewYarn extends Plugin {
       Promise.all([
         this.generatePrettierrc(args.directory),
         this.generateVscode(args.directory),
+        this.generatePackageJson(args.directory),
       ]);
     });
   }
@@ -41,5 +43,17 @@ export class NewYarn extends Plugin {
         'source.organizeImports': true,
       },
     });
+  }
+
+  async generatePackageJson(directory: string) {
+    const packageJsonFile = path.join(directory, 'package.json');
+    return fs
+      .readFile(packageJsonFile)
+      .then(res => res.toString())
+      .then(JSON.parse)
+      .then(packageJson => {
+        packageJson.scripts.format = 'prettier --write "**/*.{js,jsx,ts,tsx}"';
+        return this.writeFile(packageJsonFile, packageJson);
+      });
   }
 }

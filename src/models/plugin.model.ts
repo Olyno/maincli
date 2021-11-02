@@ -1,5 +1,6 @@
 import { exec } from 'child_process';
 import fs from 'fs-extra';
+import { merge } from 'lodash';
 import ora, { Ora } from 'ora';
 import { promisify } from 'util';
 
@@ -79,10 +80,20 @@ export abstract class Plugin {
       .readFile(path, 'utf8')
       .then(async fileContent => {
         if (path.endsWith('.json') && typeof content === 'object') {
-          const json: JsonType = { ...content, ...JSON.parse(fileContent) };
+          const json: JsonType = merge(JSON.parse(fileContent), content);
           return fs.writeFile(path, JSON.stringify(json, null, 2), 'utf-8');
         }
       })
-      .then(() => writeFile.succeed(`Created: ${path}`));
+      .then(() => writeFile.succeed(`Created: ${path}`))
+      .catch(err => {
+        const data =
+          typeof content === 'object'
+            ? JSON.stringify(content, null, 2)
+            : content;
+        if (err.code === 'ENOENT') {
+          return fs.writeFile(path, data, 'utf-8');
+        }
+        throw err;
+      });
   }
 }

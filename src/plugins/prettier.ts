@@ -12,12 +12,13 @@ export class Prettier extends Plugin {
   }
 
   async run(args: PluginRun): Promise<void> {
+    this.projectPath = args.directory;
     const commands = ['yarn add prettier -D'];
     return this.executeAsync(commands).then(() => {
       Promise.all([
-        this.generatePrettierrc(args.directory),
-        this.generateVscode(args.directory),
-        this.generatePackageJson(args.directory),
+        this.generatePrettierrc(this.projectPath),
+        this.generateVscode(this.projectPath),
+        this.generatePackageJson(this.projectPath),
       ]);
     });
   }

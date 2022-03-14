@@ -13,11 +13,12 @@ export class FromJsToTsPlugin extends Plugin {
   }
 
   async run(args: PluginRun): Promise<void> {
+    this.projectPath = args.directory;
     return new fdir()
       .withFullPaths()
       .glob('**/*.js')
       .filter(filePath => !filePath.includes('node_modules'))
-      .crawl(args.directory)
+      .crawl(this.projectPath)
       .withPromise()
       .then(files => {
         const paths = files as string[];

@@ -6,6 +6,7 @@
   "license": "MIT",
   "scripts": {
     "build": "node scripts/build",
+    "build:dev": "run build --dev",
     "format": "prettier --write \"src/**/*.ts\""
   },
   "bin": {

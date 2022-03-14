@@ -16,6 +16,8 @@ interface JsonType {
   [key: string]: any;
 }
 
+type LazyPromose = () => Promise<Ora | void>;
+
 export interface PluginRun {
   directory: string;
 }
@@ -37,15 +39,24 @@ export abstract class Plugin {
     this.version = config.version;
   }
 
-  async executeSync(commands: string[]): Promise<Ora> {
+  async executeShellCommand(command: string) {
+    return execAsync(command, { cwd: this.projectPath });
+  }
+
+  async executeSync(commands: (string | LazyPromose)[]): Promise<Ora> {
     if (commands.length === 0) {
       this.executeSyncSpinner.succeed(`Completed: ${this.name}`);
       return;
     }
     this.executeSyncSpinner.text = `Running: ${commands[0]}`;
     this.executeSyncSpinner.start();
-    const { stderr } = await execAsync(commands.shift());
-    if (stderr) this.executeSyncSpinner.fail(stderr);
+    const command = commands.shift();
+    if (typeof command === 'function') {
+      await command();
+    } else {
+      const { stderr } = await this.executeShellCommand(command as string);
+      if (stderr) this.executeSyncSpinner.fail(stderr);
+    }
     return this.executeSync(commands);
   }
 
@@ -53,7 +64,7 @@ export abstract class Plugin {
     return Promise.all(
       commands.map(async command => {
         const executeAsyncSpinner = ora(`Running: ${command}`).start();
-        return execAsync(command)
+        return this.executeShellCommand(command)
           .then(({ stderr }) => {
             if (stderr) executeAsyncSpinner.fail(stderr);
           })
@@ -74,7 +85,10 @@ export abstract class Plugin {
       .then(() => createPath.succeed(`Created: ${path}`));
   }
 
-  async writeFile(path: string, content: string | JsonType) {
+  async writeFile(
+    path: string,
+    content: string | JsonType
+  ): Promise<Ora | void> {
     const writeFile = ora(`Writting: ${path}`).start();
     return fs
       .readFile(path, 'utf8')
@@ -86,7 +100,7 @@ export abstract class Plugin {
           return fs.writeFile(path, fileContent + '\n' + content, 'utf-8');
         }
       })
-      .then(() => writeFile.succeed(`Created: ${path}`))
+      .then(() => writeFile.succeed(`Wrote: ${path}`))
       .catch(err => {
         const data =
           typeof content === 'object'

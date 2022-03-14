@@ -11,18 +11,16 @@ export class NewYarn extends Plugin {
   }
 
   async run(args: PluginRun): Promise<void> {
-    const yarnrc = path.join(args.directory, '.yarnrc.yml');
+    this.projectPath = args.directory;
     const commands = [
       'yarn set version berry',
       'yarn plugin import interactive-tools',
       'yarn plugin import typescript',
-      'yarn',
+      () => this.generateConfig(this.projectPath),
     ];
-    this.generateGitignore(args.directory);
     Promise.all([
       this.executeSync(commands),
-      this.generateConfig(args.directory),
-      this.generateGitignore(args.directory),
+      this.generateGitignore(this.projectPath),
     ]);
   }
 

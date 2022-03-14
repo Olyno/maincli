@@ -1,5 +1,7 @@
 import esbuild from 'esbuild';
 
+const isDev = process.argv.includes('--dev');
+
 esbuild
   .build({
     logLevel: 'info',
@@ -8,5 +10,6 @@ esbuild
     outfile: 'dist/cli.cjs',
     platform: 'node',
     target: 'esnext',
+    watch: isDev,
   })
   .catch(() => process.exit(1));

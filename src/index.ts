@@ -6,13 +6,15 @@ import { Plugin } from './models/plugin.model';
 import plugins from './plugins';
 import { capitalize } from './utils';
 
+const default_path = process.argv.at(-1);
+
 prompts(
   [
     {
       type: 'text',
       name: 'projectPath',
       message: 'Select your working dir',
-      initial: process.cwd(),
+      initial: default_path || process.cwd(),
     },
     {
       type: 'autocompleteMultiselect',
@@ -32,17 +34,13 @@ prompts(
     },
   }
 )
-  .then(responses => {
+  .then(async responses => {
     const { projectPath, selectedPlugins } = responses;
     const pluginsList = selectedPlugins as Plugin[];
-    if (pluginsList && pluginsList.length > 0) {
-      pluginsList.forEach(plugin => {
-        plugin.run({
-          directory: path.resolve(projectPath),
-        });
+    for (const plugin of pluginsList) {
+      await plugin.run({
+        directory: path.resolve(projectPath),
       });
-    } else {
-      console.log('No plugin selected');
     }
   })
   .catch(error => {

@@ -1,8 +1,12 @@
 import fs from 'fs/promises';
+import { capitalize } from 'lodash';
+import { createSpinner, Spinner } from 'nanospinner';
 import path from 'path';
 import { Plugin, PluginRun } from '../models/plugin.model';
 
 export class Prettier extends Plugin {
+  private spinner: Spinner = createSpinner(`Setup ${this.name}`);
+
   constructor() {
     super({
       name: 'prettier',
@@ -11,16 +15,24 @@ export class Prettier extends Plugin {
     });
   }
 
-  async run(args: PluginRun): Promise<void> {
+  public prerun(args: PluginRun) {
     this.projectPath = args.directory;
-    const commands = ['yarn add prettier -D'];
-    return this.executeAsync(commands).then(() => {
-      Promise.all([
-        this.generatePrettierrc(this.projectPath),
-        this.generateVscode(this.projectPath),
-        this.generatePackageJson(this.projectPath),
-      ]);
-    });
+    this.spinner.start();
+    return this.executeSync([
+      () => this.generatePrettierrc(this.projectPath),
+      () => this.generateVscode(this.projectPath),
+    ]);
+  }
+
+  public run(args: PluginRun) {
+    return this.executeSync([
+      'yarn add prettier -D',
+      () => this.generatePackageJson(this.projectPath),
+    ]);
+  }
+
+  public postrun(args: PluginRun) {
+    this.spinner.success({ text: `${capitalize(this.name)} installed` });
   }
 
   async generatePrettierrc(directory: string) {

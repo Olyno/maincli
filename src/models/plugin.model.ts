@@ -1,7 +1,7 @@
 import { exec } from 'child_process';
 import fs from 'fs-extra';
 import { merge } from 'lodash';
-import ora, { Ora } from 'ora';
+import { Spinner } from 'nanospinner';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
@@ -16,7 +16,9 @@ interface JsonType {
   [key: string]: any;
 }
 
-type LazyPromose = () => Promise<Ora | void>;
+type LazyPromise = () => Promise<any>;
+
+export type PluginCommand = string | LazyPromise;
 
 export interface PluginRun {
   directory: string;
@@ -29,9 +31,11 @@ export abstract class Plugin {
   public description: string;
   public version: string;
 
-  private executeSyncSpinner = ora();
+  abstract run(args: PluginRun): any;
+  abstract prerun(args: PluginRun): any;
+  abstract postrun(args: PluginRun): any;
 
-  abstract run(args: PluginRun): Promise<void>;
+  protected executionSpinner: Spinner | null = null;
 
   constructor(config: PluginConfig) {
     this.name = config.name;
@@ -43,64 +47,55 @@ export abstract class Plugin {
     return execAsync(command, { cwd: this.projectPath });
   }
 
-  async executeSync(commands: (string | LazyPromose)[]): Promise<Ora> {
+  async executeSync(commands: PluginCommand[]): Promise<any> {
     if (commands.length === 0) {
-      this.executeSyncSpinner.succeed(`Completed: ${this.name}`);
       return;
     }
-    this.executeSyncSpinner.text = `Running: ${commands[0]}`;
-    this.executeSyncSpinner.start();
     const command = commands.shift();
     if (typeof command === 'function') {
       await command();
     } else {
       const { stderr } = await this.executeShellCommand(command as string);
-      if (stderr) this.executeSyncSpinner.fail(stderr);
+      if (stderr) throw new Error(stderr);
     }
     return this.executeSync(commands);
   }
 
-  async executeAsync(commands: string[]) {
+  async executeAsync(commands: PluginCommand[]) {
     return Promise.all(
       commands.map(async command => {
-        const executeAsyncSpinner = ora(`Running: ${command}`).start();
-        return this.executeShellCommand(command)
-          .then(({ stderr }) => {
-            if (stderr) executeAsyncSpinner.fail(stderr);
-          })
-          .then(() => executeAsyncSpinner.succeed(`Completed: ${this.name}`));
+        if (typeof command === 'function') {
+          return command();
+        }
+        return this.executeShellCommand(command).then(({ stderr }) => {
+          if (stderr) throw new Error(stderr);
+        });
       })
     );
   }
 
   async create(path: string) {
-    const createPath = ora(`Creating: ${path}`).start();
     if (path.match(/\.\w+/)) {
-      return fs
-        .ensureFile(path)
-        .then(() => createPath.succeed(`Created: ${path}`));
+      return fs.ensureFile(path);
     }
-    return fs
-      .ensureDir(path)
-      .then(() => createPath.succeed(`Created: ${path}`));
+    return fs.ensureDir(path);
   }
 
-  async writeFile(
-    path: string,
-    content: string | JsonType
-  ): Promise<Ora | void> {
-    const writeFile = ora(`Writting: ${path}`).start();
+  async writeFile(path: string, content: string | JsonType): Promise<void> {
+    await this.create(path);
     return fs
       .readFile(path, 'utf8')
       .then(async fileContent => {
         if (path.endsWith('.json') && typeof content === 'object') {
-          const json: JsonType = merge(JSON.parse(fileContent), content);
+          const json: JsonType = merge(
+            JSON.parse(fileContent || '{}'),
+            content
+          );
           return fs.writeFile(path, JSON.stringify(json, null, 2), 'utf-8');
         } else {
           return fs.writeFile(path, fileContent + '\n' + content, 'utf-8');
         }
       })
-      .then(() => writeFile.succeed(`Wrote: ${path}`))
       .catch(err => {
         const data =
           typeof content === 'object'

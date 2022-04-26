@@ -1,7 +1,11 @@
+import { capitalize } from 'lodash';
+import { createSpinner, Spinner } from 'nanospinner';
 import path from 'path';
 import { Plugin, PluginRun } from '../models/plugin.model';
 
 export class NewYarn extends Plugin {
+  private spinner: Spinner = createSpinner(`Setup ${this.name}`);
+
   constructor() {
     super({
       name: 'new yarn',
@@ -10,18 +14,21 @@ export class NewYarn extends Plugin {
     });
   }
 
-  async run(args: PluginRun): Promise<void> {
+  public prerun(args: PluginRun) {
     this.projectPath = args.directory;
-    const commands = [
+    this.spinner.start();
+    return this.executeSync([
       'yarn set version berry',
       'yarn plugin import interactive-tools',
       'yarn plugin import typescript',
       () => this.generateConfig(this.projectPath),
-    ];
-    Promise.all([
-      this.executeSync(commands),
-      this.generateGitignore(this.projectPath),
     ]);
+  }
+
+  public run(args: PluginRun) {}
+
+  public postrun(args: PluginRun) {
+    this.spinner.success({ text: `${capitalize(this.name)} installed` });
   }
 
   async generateConfig(directory: string) {

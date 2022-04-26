@@ -1,10 +1,10 @@
 #! /usr/bin/env node
 
+import { capitalize } from 'lodash';
 import path from 'path';
 import prompts from 'prompts';
 import { Plugin } from './models/plugin.model';
 import plugins from './plugins';
-import { capitalize } from './utils';
 
 const default_path = process.argv.at(-1);
 
@@ -38,7 +38,17 @@ prompts(
     const { projectPath, selectedPlugins } = responses;
     const pluginsList = selectedPlugins as Plugin[];
     for (const plugin of pluginsList) {
+      await plugin.prerun({
+        directory: path.resolve(projectPath),
+      });
+    }
+    for (const plugin of pluginsList) {
       await plugin.run({
+        directory: path.resolve(projectPath),
+      });
+    }
+    for (const plugin of pluginsList) {
+      await plugin.postrun({
         directory: path.resolve(projectPath),
       });
     }
